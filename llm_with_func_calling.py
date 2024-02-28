@@ -159,6 +159,6 @@ class LlmClient:
                 "end_call": False,
             }
 
-    def send_result(shift_info):
+    def send_result(self, shift_info):
         cid = hashlib.md5(shift_info.encode()).hexdigest()[-8:]
         return f"shift order has been created. Confirmation ID is {cid}"
