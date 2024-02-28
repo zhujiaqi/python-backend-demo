@@ -1,9 +1,8 @@
 from openai import OpenAI
 import os
 import json
-
-beginSentence = "Hey there, I'm your personal AI therapist, how can I help you?"
-agentPrompt = "Task: As a professional therapist, your responsibilities are comprehensive and patient-centered. You establish a positive and trusting rapport with patients, diagnosing and treating mental health disorders. Your role involves creating tailored treatment plans based on individual patient needs and circumstances. Regular meetings with patients are essential for providing counseling and treatment, and for adjusting plans as needed. You conduct ongoing assessments to monitor patient progress, involve and advise family members when appropriate, and refer patients to external specialists or agencies if required. Keeping thorough records of patient interactions and progress is crucial. You also adhere to all safety protocols and maintain strict client confidentiality. Additionally, you contribute to the practice's overall success by completing related tasks as needed.\n\nConversational Style: Communicate concisely and conversationally. Aim for responses in short, clear prose, ideally under 10 words. This succinct approach helps in maintaining clarity and focus during patient interactions.\n\nPersonality: Your approach should be empathetic and understanding, balancing compassion with maintaining a professional stance on what is best for the patient. It's important to listen actively and empathize without overly agreeing with the patient, ensuring that your professional opinion guides the therapeutic process."
+import hashlib
+from prompts import agentPrompt, beginSentence
 
 class LlmClient:
     def __init__(self):
@@ -11,7 +10,7 @@ class LlmClient:
             organization=os.environ['OPENAI_ORGANIZATION_ID'],
             api_key=os.environ['OPENAI_API_KEY'],
         )
-    
+
     def draft_begin_messsage(self):
         return {
             "response_id": 0,
@@ -19,7 +18,7 @@ class LlmClient:
             "content_complete": True,
             "end_call": False,
         }
-    
+
     def convert_transcript_to_openai_messages(self, transcript):
         messages = []
         for utterance in transcript:
@@ -72,21 +71,38 @@ class LlmClient:
                     },
                 },
             },
+            {
+                "type": "function",
+                "function": {
+                    "name": "send_result",
+                    "description": "Send the result to the system to create a shift",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "shift_info": {
+                                "type": "string",
+                                "description": "the JSON object that has been created for the shift order.",
+                            },
+                        },
+                        "required": ["shift_info"],
+                    },
+                },
+            },
         ]
         return functions
-    
-    def draft_response(self, request):      
+
+    def draft_response(self, request):
         prompt = self.prepare_prompt(request)
         func_call = {}
         func_arguments = ""
         stream = self.client.chat.completions.create(
-            model="gpt-3.5-turbo-1106",
+            model="gpt-4-turbo-preview",
             messages=prompt,
             stream=True,
             # Step 2: Add the function into your request
             tools=self.prepare_functions()
         )
-    
+
         for chunk in stream:
             # Step 3: Extract the functions
             if chunk.choices[0].delta.tool_calls:
@@ -103,7 +119,7 @@ class LlmClient:
                 else:
                     # append argument
                     func_arguments += tool_calls.function.arguments or ""
-            
+
             # Parse transcripts
             if chunk.choices[0].delta.content:
                 yield {
@@ -112,7 +128,7 @@ class LlmClient:
                     "content_complete": False,
                     "end_call": False,
                 }
-        
+
         # Step 4: Call the functions
         if func_call:
             if func_call['func_name'] == "end_call":
@@ -123,6 +139,16 @@ class LlmClient:
                     "content_complete": True,
                     "end_call": True,
                 }
+            elif func_call['func_name'] == "send_result":
+                func_call['arguments'] = json.loads(func_arguments)
+                result = self.send_result(func_call['arguments']['shift_info'])
+                yield {
+                    "response_id": request['response_id'],
+                    "content": result,
+                    "content_complete": True,
+                    "end_call": False,
+                }
+                # Step 5: Other functions here
             # Step 5: Other functions here
         else:
             # No functions, complete response
@@ -132,3 +158,7 @@ class LlmClient:
                 "content_complete": True,
                 "end_call": False,
             }
+
+    def send_result(shift_info):
+        cid = hashlib.md5(shift_info.encode()).hexdigest()[-8:]
+        return f"shift order has been created. Confirmation ID is {cid}"

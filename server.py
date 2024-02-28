@@ -33,9 +33,9 @@ async def handle_twilio_voice_webhook(request: Request, agent_id_path: str):
             return PlainTextResponse("")
 
         call_response = twilio_client.retell.register_call(operations.RegisterCallRequestBody(
-            agent_id=agent_id_path, 
-            audio_websocket_protocol="twilio", 
-            audio_encoding="mulaw", 
+            agent_id=agent_id_path,
+            audio_websocket_protocol="twilio",
+            audio_encoding="mulaw",
             sample_rate=8000
         ))
         if call_response.call_detail:
@@ -70,7 +70,7 @@ async def websocket_handler(websocket: WebSocket, call_id: str):
             # print out transcript
             os.system('cls' if os.name == 'nt' else 'clear')
             print(json.dumps(request, indent=4))
-            
+
             if 'response_id' not in request:
                 continue # no response needed, process live transcript update if needed
             response_id = request['response_id']
