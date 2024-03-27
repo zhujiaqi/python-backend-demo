@@ -17,13 +17,13 @@ class TwilioClient:
             if (local_number is None or local_number[0] == None):
                 raise "No phone numbers of this area code."
             phone_number_object = self.client.incoming_phone_numbers.create(
-                phone_number=local_number[0].phone_number, 
+                phone_number=local_number[0].phone_number,
                 voice_url=f"{os.getenv('NGROK_IP_ADDRESS')}/twilio-voice-webhook/{agent_id}")
             print("Getting phone number:", vars(phone_number_object))
             return phone_number_object
         except Exception as err:
             print(err)
-            
+
     # Update this phone number to use provided agent id. Also updates voice URL address.
     def register_phone_agent(self, phone_number, agent_id):
         try:
@@ -41,7 +41,7 @@ class TwilioClient:
             return phone_number_object
         except Exception as err:
             print(err)
-    
+
     # Release a phone number
     def delete_phone_number(self, phone_number):
         try:
@@ -58,7 +58,7 @@ class TwilioClient:
             return phone_number_object
         except Exception as err:
             print(err)
-    
+
     # Use LLM function calling or some kind of parsing to determine when to let AI end the call
     def end_call(self, sid):
         try:
@@ -68,7 +68,7 @@ class TwilioClient:
             print(f"Ended call: ", vars(call))
         except Exception as err:
             print(err)
-    
+
     # Use LLM function calling or some kind of parsing to determine when to transfer away this call
     def transfer_call(self, sid, to_number):
         try:
@@ -78,19 +78,20 @@ class TwilioClient:
             print(f"Transferred call: ", vars(call))
         except Exception as err:
             print(err)
-    
+
     # Create an outbound call
     def create_phone_call(self, from_number, to_number, agent_id):
         try:
-            self.client.calls.create(
+            call = self.client.calls.create(
                 machine_detection="Enable", # detects if the other party is IVR
                 machine_detection_timeout=8,
                 async_amd="true", # call webhook when determined whether it is machine
                 async_amd_status_callback=f"{os.getenv('NGROK_IP_ADDRESS')}/twilio-voice-webhook/{agent_id}", # Webhook url for machine detection
-                url=f"{os.getenv('NGROK_IP_ADDRESS')}/twilio-voice-webhook/{agent_id}", 
-                to=to_number, 
+                url=f"{os.getenv('NGROK_IP_ADDRESS')}/twilio-voice-webhook/{agent_id}",
+                to=to_number,
                 from_=from_number
             )
             print(f"Call from: {from_number} to: {to_number}")
+            return call
         except Exception as err:
             print(err)

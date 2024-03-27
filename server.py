@@ -1,11 +1,13 @@
 import json
 import os
+import sys
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse, PlainTextResponse
 from fastapi.websockets import WebSocketState
 # from llm import LlmClient
-from llm_with_func_calling import LlmClient
+# from llm_with_func_calling import LlmClient
+from llm_for_hired import LlmClient
 from twilio_server import TwilioClient
 from retellclient.models import operations
 from twilio.twiml.voice_response import VoiceResponse
@@ -17,11 +19,6 @@ app = FastAPI()
 
 llm_client = LlmClient()
 twilio_client = TwilioClient()
-
-# twilio_client.create_phone_number(213, os.environ['RETELL_AGENT_ID'])
-# twilio_client.delete_phone_number("+12133548310")
-# twilio_client.register_phone_agent("+14154750418", os.environ['RETELL_AGENT_ID'])
-# twilio_client.create_phone_call("+14154750418", "+13123156212", os.environ['RETELL_AGENT_ID'])
 
 @app.post("/twilio-voice-webhook/{agent_id_path}")
 async def handle_twilio_voice_webhook(request: Request, agent_id_path: str):
@@ -36,7 +33,8 @@ async def handle_twilio_voice_webhook(request: Request, agent_id_path: str):
             agent_id=agent_id_path,
             audio_websocket_protocol="twilio",
             audio_encoding="mulaw",
-            sample_rate=8000
+            sample_rate=8000,
+            end_call_after_silence_ms=30000
         ))
         if call_response.call_detail:
             response = VoiceResponse()
@@ -68,7 +66,8 @@ async def websocket_handler(websocket: WebSocket, call_id: str):
             message = await websocket.receive_text()
             request = json.loads(message)
             # print out transcript
-            os.system('cls' if os.name == 'nt' else 'clear')
+            if sys.stdout.isatty():
+                os.system('cls' if os.name == 'nt' else 'clear')
             print(json.dumps(request, indent=4))
 
             if 'response_id' not in request:
